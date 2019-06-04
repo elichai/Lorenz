@@ -1,8 +1,11 @@
 [package]
-name = "Lorenz"
+name = "lorenz"
 version = "0.1.0"
 authors = ["elichai2"]
 edition = "2018"
 
 [dependencies]
 ring = "0.14.6"
+x25519-dalek = "0.5.2"
+rand_os = "0.1.3"
+lazy_static = "1.3.0"
