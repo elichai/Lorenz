@@ -1,0 +1,8 @@
+[package]
+name = "Lorenz"
+version = "0.1.0"
+authors = ["elichai2"]
+edition = "2018"
+
+[dependencies]
+ring = "0.14.6"
