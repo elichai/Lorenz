@@ -32,6 +32,13 @@ impl EphemeralKey {
     }
 }
 
+impl From<[u8; 32]> for EphemeralKey {
+    #[inline]
+    fn from(bytes: [u8; 32]) -> EphemeralKey {
+        EphemeralKey(bytes.into())
+    }
+}
+
 pub struct UserKey {
     pub private: StaticSecret,
     pub public: PublicKey,
