@@ -15,7 +15,7 @@ pub struct EphemeralKey(StaticSecret);
 
 impl EphemeralKey {
     pub fn new() -> Result<Self, Error> {
-        let mut rng = OsRng::new().map_err(Error::io)?;
+        let mut rng = OsRng::new()?;
         Ok(Self(StaticSecret::new(&mut rng)))
     }
 
@@ -39,19 +39,31 @@ impl From<[u8; 32]> for EphemeralKey {
     }
 }
 
-pub struct UserKey {
-    pub private: StaticSecret,
-    pub public: PublicKey,
+pub struct UserSecretKey(StaticSecret);
+
+impl UserSecretKey {
+
+    pub fn get_public(&self) -> PublicKey {
+        PublicKey::from(&self.0)
+    }
+
+    pub fn derive_secret(&self, other: &PublicKey, len: usize) -> Secret {
+        let mut res = vec![0u8; len];
+        let shared = self.0.diffie_hellman(&other);
+        hkdf::extract_and_expand(&SALT, shared.as_bytes(), &[], &mut res);
+
+        Secret::from_vec(res)
+    }
+
 }
 
-pub fn get_user_keys(amount: usize) -> Result<Vec<UserKey>, Error> {
-    let mut rng = OsRng::new().map_err(Error::io)?;
+pub fn get_user_keys(amount: usize) -> Result<Vec<UserSecretKey>, Error> {
+    let mut rng = OsRng::new()?;
     let mut res = Vec::with_capacity(amount);
 
     for _ in 0..amount {
         let private = StaticSecret::new(&mut rng);
-        let public = PublicKey::from(&private);
-        res.push(UserKey { public, private })
+        res.push(UserSecretKey(private))
     }
     Ok(res)
 }

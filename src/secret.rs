@@ -13,7 +13,7 @@ impl Secret {
     }
 
     pub fn generate32() -> Result<Self, Error> {
-        let mut rng = OsRng::new().map_err(Error::io)?;
+        let mut rng = OsRng::new()?;
         let mut vec = vec![0u8; 32];
         rng.fill_bytes(&mut vec);
         Ok(Self::from_vec(vec))

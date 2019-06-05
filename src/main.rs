@@ -1,9 +1,10 @@
 #![allow(dead_code)]
 
-mod encrypt;
+mod encryption;
 mod error;
 mod secret;
 mod x25519;
+mod logic;
 
 pub use error::Error;
 pub use secret::Secret;
@@ -19,8 +20,8 @@ mod tests {
     use std::io::{self, Read, Seek, SeekFrom, Write};
 
     use super::*;
-    use crate::encrypt::Scheme;
-    use crate::x25519::{EphemeralKey, UserKey};
+    use crate::encryption::Scheme;
+    use crate::x25519::{UserSecretKey};
     use rand_os::rand_core::RngCore;
     use rand_os::OsRng;
     use tempfile::tempfile;
@@ -31,9 +32,9 @@ mod tests {
         let mut encrypted = tempfile().unwrap();
         let mut decrypted = tempfile().unwrap();
 
-        let keys = encrypt(6, &mut input, &mut encrypted);
+        let mut keys = encrypt(6, &mut input, &mut encrypted);
 
-        decrypt(keys[3].private.to_bytes(), &mut encrypted, &mut decrypted);
+        decrypt(keys.remove(4), &mut encrypted, &mut decrypted);
 
         let mut before = Vec::new();
         let mut after = Vec::new();
@@ -59,8 +60,7 @@ mod tests {
         Ok(b[0])
     }
 
-    fn decrypt(key: [u8; 32], mut encrypted: &mut File, output: &mut File) {
-        let key = EphemeralKey::from(key);
+    fn decrypt(key: UserSecretKey, mut encrypted: &mut File, output: &mut File) {
         let mut pubkey = [0u8; 32];
         encrypted.read_exact(&mut pubkey).unwrap();
         let amount = take(&mut encrypted).unwrap();
@@ -76,7 +76,7 @@ mod tests {
         let mut file_data = Vec::with_capacity(file_size);
         encrypted.read_to_end(&mut file_data).unwrap();
 
-        let original = encrypt::decrypt(aes_key.as_ref(), file_data, Scheme::AES256GCM).unwrap();
+        let original = encryption::decrypt_data(aes_key.as_ref(), file_data, Scheme::AES256GCM).unwrap();
         output.write_all(&original).unwrap();
 
         encrypted.seek(SeekFrom::Start(0)).unwrap();
@@ -90,7 +90,7 @@ mod tests {
                 None => return (None, amount - i),
                 Some(()) => (),
             };
-            match encrypt::decrypt(shared.as_ref(), encrypted_key, Scheme::AES256GCM) {
+            match encryption::decrypt_data(shared.as_ref(), encrypted_key, Scheme::AES256GCM) {
                 Err(_) => continue,
                 Ok(key) => return (Some(Secret::from_vec(key)), amount - i),
             }
@@ -98,7 +98,7 @@ mod tests {
         (None, 0)
     }
 
-    fn encrypt(keys: u8, input_file: &mut File, output: &mut File) -> Vec<UserKey> {
+    fn encrypt(keys: u8, input_file: &mut File, output: &mut File) -> Vec<UserSecretKey> {
         let mut input = Vec::with_capacity(1987);
         input_file.read_to_end(&mut input).unwrap();
         let aes = Secret::generate32().unwrap();
@@ -110,15 +110,14 @@ mod tests {
 
         let keys = x25519::get_user_keys(keys as usize).unwrap();
         for key in &keys {
-            let shared = ephemeral.derive_secret(&key.public, 32);
+            let shared = ephemeral.derive_secret(&key.get_public(), 32);
             let enc_key =
-                encrypt::encrypt(shared.as_ref(), aes.clone().into_vec(), Scheme::AES256GCM)
+                encryption::encrypt_data(shared.as_ref(), aes.clone().into_vec(), Scheme::AES256GCM)
                     .unwrap();
             output.write_all(&enc_key).unwrap();
         }
-        dbg!(&input);
 
-        let enc_file = encrypt::encrypt(aes.as_ref(), input, Scheme::AES256GCM).unwrap();
+        let enc_file = encryption::encrypt_data(aes.as_ref(), input, Scheme::AES256GCM).unwrap();
         output.write_all(&enc_file).unwrap();
         output.seek(SeekFrom::Start(0)).unwrap();
         input_file.seek(SeekFrom::Start(0)).unwrap();
