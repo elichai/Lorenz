@@ -36,7 +36,7 @@ pub fn decrypt_file_with_keys(input_file: &mut File, key: UserSecretKey, output:
     let shared = key.derive_secret(&pubkey.into(), 32);
     let (key, left) = find_encrypted_key(input_file, shared, amount, scheme);
     let key = key.ok_or(Error::BadKey)?;
-    input_file.seek(SeekFrom::Current(left as i64 * scheme.get_encrypted_key_size() as i64))?;
+    input_file.seek(SeekFrom::Current(i64::from(left) * scheme.get_encrypted_key_size() as i64))?;
 
     let data_size = file_len(input_file) - 32 - 1 - amount as usize * scheme.get_encrypted_key_size();
     let mut data = Vec::with_capacity(data_size);
@@ -71,13 +71,12 @@ fn find_encrypted_key<R: Read>(f: &mut R, shared: Secret, amount: u8, scheme: Sc
     (None, 0)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::{get_rand_file, generate_random_keys};
+    use crate::tests::{generate_random_keys, get_rand_file};
+    use rand::{seq::SliceRandom, thread_rng, Rng};
     use tempfile::tempfile;
-    use rand::{Rng, thread_rng, seq::SliceRandom};
 
     #[test]
     fn encryption_decryption_test() {
@@ -108,6 +107,5 @@ mod tests {
         decrypted.read_to_end(&mut after).unwrap();
         assert_eq!(before, after);
     }
-
 
 }
