@@ -1,19 +1,58 @@
+os:
+- linux
+- osx
+- windows
 language: rust
+cache:
+  - cargo
+  - directories:
+      - $HOME/.rustup
+
 sudo: false
 rust:
-  - stable
-  - beta
-  - nightly
-script:
-  - cargo build --verbose
-  - cargo test --verbose
-
+- stable
+- beta
+- nightly
+matrix:
+  fast_finish: true
+  allow_failures:
+  - rust: nightly
+  - rust: beta
 before_script:
   - if [ ${TRAVIS_RUST_VERSION} == "stable" ]; then
     rustup component add clippy-preview rustfmt;
     cargo fmt --all -- --check;
     cargo clippy -- -D clippy::all;
+    if ! [[ -z "${TRAVIS_TAG}" ]]; then
+      [[ ${TRAVIS_OS_NAME} == "windows" ]] && export EXTENSION=".exe";
+      export RELEASE="--release";
+      export BASE_NAME="lorenz"$EXTENSION
+      export FILE_NAME=$TRAVIS_OS_NAME"_"$TRAVIS_TAG"_";
+      fi
     fi
+script:
+- cargo build --verbose $RELEASE
+- cargo test --verbose $RELEASE
+- ls target/*/
+
+before_deploy:
+  - mv target/release/$BASE_NAME $FILE_NAME$BASE_NAME
+  - echo $BASE_NAME
+  - echo $FILE_NAME
+  - ls $FILE_NAME$BASE_NAME
+
+deploy:
+  provider: releases
+  api_key:
+    secure: GX2XHpV7ji08v5rOvx0YdHd3AKc8JvzVFIc76SzZ5z9QOmpizHS2D4N/+jzw1eitCM+cl2V/Y/akklqNveOAXxibPN64vJHsfWkedVPntClF6dWZFSuOS8HP8B7AqvIHrDe9S19sgbS0VAti9KzpkGkzcuTy+lD9wwylVmWZTfQek25y7DyP/+N6sOBIt3Yyn9V0vLLZIzCeCLKFRrXhi+Lkosg7TJqNUAvsESVy5cLDUcslAf41gwY5z/W73NF179DnxgrqcpbHkdVoPM32A3FrRyDQ6jAXCmbNWBZunIx7rkwY85o0BE5AVCXDl8TLLEqiIKO8lUpqgjchi+wTnF2AM4cQWQikoyxzVc65RUkKrAkeH10dAN7F8AWl3bMud8CIZZBcr+J6vdH6ugOsWTIXfXhpxraIIe05YQbKSRCQ9sHJqNFUSrFISy54Z08HcY8qaz7kj3LeB77JMHDdFj6u9V43hCLr9eNgA23pLAejheqreOwEHyfx1ayxcWatXgR8xQxKqlYSHQ+0y1nKvm1LiIWFkjJ9Ax1/l0IC7sV31/cWXuXXE+Mkso7Apo9HYnJCprmPJ9FUqde8bd68uOFrvOZe15U2QnRBenCmonCAY7hwOzwCwY68DswiFjjq7O+7nDWobQDR+kF7Fe+QqjEp9zBQ7diLWItRFwSlK3w=
+  file_glob: true
+  file: $FILE_NAME$BASE_NAME
+  skip_cleanup: true
+  on:
+    repo: elichai/Lorenz
+    tags: true
+    condition: $TRAVIS_RUST_VERSION = "stable"
+
 
 notifications:
   email:
