@@ -9,16 +9,10 @@ A Rust binary for file encryption to multiple participants.
 
 ## Installation
 
-### Prerequisites
-
-Install the patched fonts of powerline nerd-font and/or font-awesome. Have a look at the [Nerd Font README](https://github.com/ryanoasis/nerd-fonts/blob/master/readme.md) for more installation instructions. Don't forget to setup your terminal in order to use the correct font.
-
 ### Archlinux
 TBD
 
-### On Ubuntu
-
-_... and other Debian-based Linux distributions_
+### On Ubuntu_... and other Debian-based Linux distributions_
 TBD
 
 ### On Gentoo
