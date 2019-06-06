@@ -69,9 +69,9 @@ impl fmt::Display for UserSecretKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut private = self.0.to_bytes().to_hex::<String>();
         let public = self.get_public().as_bytes().to_hex::<String>();
-        writeln!(f, "privateKey: {}", private)?;
+        writeln!(f, "privateKey: 0x{}", private)?;
         private.zeroize();
-        writeln!(f, "publicKey: {}", public)
+        writeln!(f, "publicKey: 0x{}", public)
     }
 }
 
