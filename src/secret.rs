@@ -3,8 +3,10 @@ use rand_os::rand_core::RngCore;
 use rand_os::OsRng;
 use std::boxed::Box;
 use std::pin::Pin;
+use zeroize::Zeroize;
 
-#[derive(Clone)]
+#[derive(Clone, Zeroize)]
+#[zeroize(drop)]
 pub struct Secret(Pin<Box<[u8]>>);
 
 impl Secret {

@@ -3,6 +3,7 @@ use ring::aead::{self, open_in_place, seal_in_place, Aad, Nonce, OpeningKey, Sea
 use ring::rand::{SecureRandom, SystemRandom};
 use std::str::FromStr;
 use structopt::clap::{Error as ClapError, ErrorKind as ClapErrorKind};
+use zeroize::Zeroizing;
 
 #[derive(Copy, Clone)]
 pub enum Scheme {
@@ -37,8 +38,9 @@ pub fn decrypt_data(key: &[u8], mut data: Vec<u8>, scheme: Scheme) -> Result<Vec
     let nonce = Nonce::try_assume_unique_for_key(&nonce).unwrap(); // Can never fail.
 
     let key = OpeningKey::new(algorithm, key)?;
+    let mut result = Zeroizing::new(data);
 
-    let plaintext = open_in_place(&key, nonce, Aad::empty(), 0, &mut data)?;
+    let plaintext = open_in_place(&key, nonce, Aad::empty(), 0, &mut result)?;
 
     Ok(plaintext.to_vec())
 }

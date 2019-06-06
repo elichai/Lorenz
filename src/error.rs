@@ -18,6 +18,9 @@ impl Error {
     pub fn key_length<E>(_: E) -> Self {
         Error::BadKeyLength
     }
+    pub fn bad_key<E>(_: E) -> Self {
+        Error::BadKey
+    }
 }
 
 impl StdError for Error {}
