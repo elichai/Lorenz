@@ -23,7 +23,7 @@ pub fn encrypt_file_with_keys(input_file: &mut File, keys: Vec<PublicKey>, outpu
         output.write_all(&enc_key)?;
     }
 
-    let enc_file = encryption::encrypt_data(aes.as_ref(), input, Scheme::AES256GCM)?;
+    let enc_file = encryption::encrypt_data(aes.as_ref(), input, scheme)?;
     output.write_all(&enc_file)?;
     Ok(())
 }
@@ -41,10 +41,10 @@ pub fn decrypt_file_with_keys(input_file: &mut File, key: UserSecretKey, output:
     let data_size = file_len(input_file) - 32 - 1 - amount as usize * scheme.get_encrypted_key_size();
     let mut data = Vec::with_capacity(data_size);
 
-    input_file.read_to_end(&mut data).unwrap();
+    input_file.read_to_end(&mut data)?;
 
     let original = encryption::decrypt_data(key.as_ref(), data, scheme)?;
-    output.write_all(&original).unwrap();
+    output.write_all(&original)?;
 
     Ok(())
 }
@@ -69,4 +69,45 @@ fn find_encrypted_key<R: Read>(f: &mut R, shared: Secret, amount: u8, scheme: Sc
         }
     }
     (None, 0)
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::{get_rand_file, generate_random_keys};
+    use tempfile::tempfile;
+    use rand::{Rng, thread_rng, seq::SliceRandom};
+
+    #[test]
+    fn encryption_decryption_test() {
+        for _ in 0..15 {
+            internal_test(Scheme::AES256GCM);
+            internal_test(Scheme::Chacha20Poly1305);
+        }
+    }
+
+    fn internal_test(scheme: Scheme) {
+        let mut rng = thread_rng();
+        let mut original = get_rand_file();
+        let mut encrypted = tempfile().unwrap();
+        let mut decrypted = tempfile().unwrap();
+        let keys = generate_random_keys(rng.gen());
+        let decrypt_with = keys.choose(&mut rng).unwrap().0.clone();
+        let pub_keys = keys.iter().map(|(_, p)| p).cloned().collect();
+
+        encrypt_file_with_keys(&mut original, pub_keys, &mut encrypted, scheme).unwrap();
+        encrypted.seek(SeekFrom::Start(0)).unwrap();
+        decrypt_file_with_keys(&mut encrypted, decrypt_with, &mut decrypted, scheme).unwrap();
+
+        original.seek(SeekFrom::Start(0)).unwrap();
+        decrypted.seek(SeekFrom::Start(0)).unwrap();
+
+        let (mut before, mut after) = (Vec::with_capacity(1986), Vec::with_capacity(1986));
+        original.read_to_end(&mut before).unwrap();
+        decrypted.read_to_end(&mut after).unwrap();
+        assert_eq!(before, after);
+    }
+
+
 }

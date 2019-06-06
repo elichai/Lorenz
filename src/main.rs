@@ -43,7 +43,7 @@ fn handle_cli(opt: Options) -> Result<(), ClapError> {
         }
         Options::Decrypt { private_key, file, mode } => {
             let mut input = File::open(&file)?;
-            let output_path = remove_lorenz_extenstion(file).unwrap();
+            let output_path = remove_lorenz_extenstion(file)?;
             let mut output = File::create(&output_path)?;
             let scheme = Scheme::from_str(&mode)?;
             logic::decrypt_file_with_keys(&mut input, private_key, &mut output, scheme)?;
@@ -59,28 +59,29 @@ fn add_lorenz_extenstion<P: AsRef<Path>>(path: P) -> PathBuf {
     path.into()
 }
 
-fn remove_lorenz_extenstion<P: AsRef<Path>>(path: P) -> Option<PathBuf> {
-    let mut path = path.as_ref();
+fn remove_lorenz_extenstion<P: AsRef<Path>>(path: P) -> Result<PathBuf, ClapError> {
+    let err = ClapError::with_description("Bad File, doesn't end with `lorenz` extension", ClapErrorKind::InvalidValue);
+    let path = path.as_ref();
     if let Some(ext) = path.extension() {
         if ext == "lorenz" {
             let mut res = path.to_owned();
-            res.set_file_name(path.file_stem()?);
-            return Some(res);
+            let file_without_path = path.file_stem().ok_or(err)?;
+            res.set_file_name(file_without_path);
+            return Ok(res);
         }
     }
-    None
+    Err(err)
 }
 
 #[cfg(test)]
 mod tests {
+    use rand::{thread_rng, RngCore};
     use std::fs::File;
     use std::io::{self, Read, Seek, SeekFrom, Write};
 
     use super::*;
     use crate::encryption::Scheme;
     use crate::x25519::UserSecretKey;
-    use rand_os::rand_core::RngCore;
-    use rand_os::OsRng;
     use tempfile::tempfile;
 
     #[test]
@@ -101,9 +102,9 @@ mod tests {
         assert_eq!(before, after);
     }
 
-    fn get_rand_file() -> File {
+    pub fn get_rand_file() -> File {
         let mut input = vec![0u8; 1986];
-        let mut rng = OsRng::new().unwrap();
+        let mut rng = thread_rng();
         rng.fill_bytes(&mut input);
         let mut f = tempfile().unwrap();
         f.write_all(&input).unwrap();
@@ -164,9 +165,9 @@ mod tests {
 
         output.write_all(&[keys]).unwrap();
 
-        let keys = x25519::get_user_keys(keys as usize).unwrap();
-        for key in &keys {
-            let shared = ephemeral.derive_secret(&key.get_public(), 32);
+        let keys = generate_random_keys(keys);
+        for (_, public) in &keys {
+            let shared = ephemeral.derive_secret(public, 32);
             let enc_key = encryption::encrypt_data(shared.as_ref(), aes.clone().into_vec(), Scheme::AES256GCM).unwrap();
             output.write_all(&enc_key).unwrap();
         }
@@ -176,6 +177,16 @@ mod tests {
         output.seek(SeekFrom::Start(0)).unwrap();
         input_file.seek(SeekFrom::Start(0)).unwrap();
 
-        keys
+        keys.into_iter().map(|(key, _)| key).collect()
+    }
+
+    pub fn generate_random_keys(amount: u8) -> Vec<(UserSecretKey, PublicKey)> {
+        let mut res = Vec::with_capacity(amount as usize);
+        for _ in 0..amount {
+            let key = UserSecretKey::new().unwrap();
+            let public = key.get_public();
+            res.push((key, public));
+        }
+        res
     }
 }
