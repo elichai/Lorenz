@@ -1,16 +1,15 @@
-use crate::*;
-use std::io::{Read, Write, Seek, SeekFrom, self};
-use std::fs::*;
-use x25519_dalek::PublicKey;
-use encryption::Scheme;
 use crate::x25519::*;
-
+use crate::*;
+use encryption::Scheme;
+use std::fs::*;
+use std::io::{self, Read, Seek, SeekFrom, Write};
+use x25519_dalek::PublicKey;
 
 fn file_len(file: &File) -> usize {
     file.metadata().map(|m| m.len() as usize + 1).unwrap_or(0)
 }
 
-fn encrypt_file_with_keys(input_file: &mut File, keys: Vec<PublicKey>, output: &mut File, scheme: Scheme) -> Result<(), Error> {
+pub fn encrypt_file_with_keys(input_file: &mut File, keys: Vec<PublicKey>, output: &mut File, scheme: Scheme) -> Result<(), Error> {
     let mut input = Vec::with_capacity(file_len(&input_file));
     input_file.read_to_end(&mut input)?;
     let aes = Secret::generate32()?;
@@ -20,8 +19,7 @@ fn encrypt_file_with_keys(input_file: &mut File, keys: Vec<PublicKey>, output: &
 
     for key in &keys {
         let shared = ephemeral.derive_secret(&key, 32);
-        let enc_key =
-            encryption::encrypt_data(shared.as_ref(), aes.clone().into_vec(), scheme)?;
+        let enc_key = encryption::encrypt_data(shared.as_ref(), aes.clone().into_vec(), scheme)?;
         output.write_all(&enc_key)?;
     }
 
@@ -30,8 +28,7 @@ fn encrypt_file_with_keys(input_file: &mut File, keys: Vec<PublicKey>, output: &
     Ok(())
 }
 
-fn decrypt_file_with_keys(input_file: &mut File, key: UserSecretKey, output: &mut File, scheme: Scheme) -> Result<(), Error> {
-
+pub fn decrypt_file_with_keys(input_file: &mut File, key: UserSecretKey, output: &mut File, scheme: Scheme) -> Result<(), Error> {
     let mut pubkey = [0u8; 32];
     input_file.read_exact(&mut pubkey)?;
     let amount = take(input_file)?;
@@ -41,7 +38,7 @@ fn decrypt_file_with_keys(input_file: &mut File, key: UserSecretKey, output: &mu
     let key = key.ok_or(Error::BadKey)?;
     input_file.seek(SeekFrom::Current(left as i64 * scheme.get_encrypted_key_size() as i64))?;
 
-    let data_size = file_len(input_file)-32-1-amount as usize * scheme.get_encrypted_key_size();
+    let data_size = file_len(input_file) - 32 - 1 - amount as usize * scheme.get_encrypted_key_size();
     let mut data = Vec::with_capacity(data_size);
 
     input_file.read_to_end(&mut data).unwrap();
@@ -52,14 +49,11 @@ fn decrypt_file_with_keys(input_file: &mut File, key: UserSecretKey, output: &mu
     Ok(())
 }
 
-
-
 fn take<R: Read>(reader: &mut R) -> io::Result<u8> {
     let mut b = [0];
     reader.read_exact(&mut b)?;
     Ok(b[0])
 }
-
 
 fn find_encrypted_key<R: Read>(f: &mut R, shared: Secret, amount: u8, scheme: Scheme) -> (Option<Secret>, u8) {
     let key_size = scheme.get_encrypted_key_size();

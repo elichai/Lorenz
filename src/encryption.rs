@@ -1,9 +1,8 @@
 use crate::Error;
-use ring::aead::{
-    self, open_in_place, seal_in_place, Aad, Nonce, OpeningKey, SealingKey, AES_256_GCM,
-    CHACHA20_POLY1305, NONCE_LEN,
-};
+use ring::aead::{self, open_in_place, seal_in_place, Aad, Nonce, OpeningKey, SealingKey, AES_256_GCM, CHACHA20_POLY1305, NONCE_LEN};
 use ring::rand::{SecureRandom, SystemRandom};
+use std::str::FromStr;
+use structopt::clap::{Error as ClapError, ErrorKind as ClapErrorKind};
 
 #[derive(Copy, Clone)]
 pub enum Scheme {
@@ -39,8 +38,7 @@ pub fn decrypt_data(key: &[u8], mut data: Vec<u8>, scheme: Scheme) -> Result<Vec
 
     let key = OpeningKey::new(algorithm, key)?;
 
-    let plaintext =
-        open_in_place(&key, nonce, Aad::empty(), 0, &mut data)?;
+    let plaintext = open_in_place(&key, nonce, Aad::empty(), 0, &mut data)?;
 
     Ok(plaintext.to_vec())
 }
@@ -66,4 +64,17 @@ impl Scheme {
     }
 }
 
+impl FromStr for Scheme {
+    type Err = ClapError;
 
+    fn from_str(mode: &str) -> Result<Self, Self::Err> {
+        match mode.to_lowercase().as_str() {
+            "aes" | "aes256" => Ok(Scheme::AES256GCM),
+            "chacha" | "chacha20" | "chacha20poly1305" => Ok(Scheme::Chacha20Poly1305),
+            a => Err(ClapError::with_description(
+                &format!("{} Mode isn't supported, please choose one of these: AES/Chacha20", a),
+                ClapErrorKind::InvalidValue,
+            )),
+        }
+    }
+}
