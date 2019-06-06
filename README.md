@@ -59,7 +59,7 @@ Decrypt:
 `lorenz decrypt <private-key> <file>` 
 
 # Example
-``sh
+```sh
 $ lorenz generate-keys 3
 key 1: 
 privateKey: 0x40a8196f56f902d965fdf4eaadce44b651206bec8eed868d3c8b65df2f9df540
@@ -77,4 +77,4 @@ $ lorenz encrypt 0x6fa09e7d6874dcb2410390636477d87cdc8a5bbf2f9d858337f8ff73e509d
 
 $ lorenz decrypt 0x10d83487bdf1387fea1511005bb39a90d33a43f3d4bdcaa41261714abb5bcb52 test.txt.lorenz
 
-``
+```
